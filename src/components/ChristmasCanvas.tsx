@@ -625,6 +625,7 @@ const ChristmasCanvas: React.FC<Props> = ({ targetMode, onVisionUpdate, activeGi
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const zoomTarget = useRef(30); // Initial camera Z
+  const touchDistRef = useRef<number | null>(null); // For pinch-to-zoom
 
   // Object Refs
   const pivotRef = useRef<THREE.Group | null>(null); // Main Group
@@ -1301,15 +1302,63 @@ const ChristmasCanvas: React.FC<Props> = ({ targetMode, onVisionUpdate, activeGi
     };
     window.addEventListener('resize', handleResize);
 
+    // Mouse Wheel Zoom
     const handleWheel = (e: WheelEvent) => {
       zoomTarget.current += e.deltaY * 0.02;
       zoomTarget.current = Math.max(10, Math.min(60, zoomTarget.current));
     };
     window.addEventListener('wheel', handleWheel);
 
+    // --- PINCH TO ZOOM HANDLERS ---
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].pageX - e.touches[1].pageX;
+        const dy = e.touches[0].pageY - e.touches[1].pageY;
+        touchDistRef.current = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && touchDistRef.current !== null) {
+        // Prevent browser native zoom
+        e.preventDefault();
+
+        const dx = e.touches[0].pageX - e.touches[1].pageX;
+        const dy = e.touches[0].pageY - e.touches[1].pageY;
+        const newDist = Math.sqrt(dx * dx + dy * dy);
+
+        // Difference in distance: Positive = Spread = Zoom In (Move Camera Closer)
+        // We want Zoom In to DECREASE Camera Z.
+        // newDist > oldDist => Spread => Camera Z should decrease.
+        const delta = touchDistRef.current - newDist;
+
+        // Adjust sensitivity (0.1 seems good for mobile)
+        zoomTarget.current += delta * 0.1;
+        zoomTarget.current = Math.max(10, Math.min(60, zoomTarget.current));
+
+        touchDistRef.current = newDist;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      touchDistRef.current = null;
+    };
+
+    // Use { passive: false } to allow preventDefault inside touchmove
+    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+
+
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('wheel', handleWheel);
+
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+
       cancelAnimationFrame(animationId);
       if (containerRef.current) containerRef.current.innerHTML = '';
       if (videoRef.current.srcObject) {

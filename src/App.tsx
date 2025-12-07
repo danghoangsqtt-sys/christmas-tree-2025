@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import ChristmasCanvas from './components/ChristmasCanvas';
 import { VisionResult, AppMode, Gift, STICKERS } from './types';
-import { Camera, Hand, Sparkles, Edit3, Volume2, VolumeX, QrCode, X, Link as LinkIcon, Check, Gift as GiftIcon, Plus, Trash2 } from 'lucide-react';
+import { Camera, Hand, Sparkles, Edit3, Volume2, VolumeX, QrCode, X, Link as LinkIcon, Check, Gift as GiftIcon, Plus, Trash2, Download, CircleHelp } from 'lucide-react';
 
 const WISHES = [
   "Giáng Sinh An Lành",
@@ -33,6 +32,9 @@ export default function App() {
   const [isRecipientMode, setIsRecipientMode] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Help Modal State
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // GIFT FEATURE STATE
   // Sender State
@@ -251,6 +253,27 @@ export default function App() {
     });
   };
 
+  const handleDownloadQR = async () => {
+    try {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&format=png&data=${encodeURIComponent(getShareUrl())}`;
+      const response = await fetch(qrUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = recipientName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'friend';
+      a.download = `thiep-giang-sinh-${safeName}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed', error);
+      alert('Không thể tải ảnh. Vui lòng thử lại.');
+    }
+  };
+
   return (
     <div className="relative w-full h-screen text-white overflow-hidden font-sans">
 
@@ -310,6 +333,15 @@ export default function App() {
 
         {/* RIGHT TOP: Status & Controls */}
         <div className="absolute top-6 right-6 pointer-events-auto flex flex-col gap-4 items-end">
+          {/* Help Button */}
+          <button
+            onClick={() => setShowHelpModal(true)}
+            className="p-3 rounded-full backdrop-blur-md border bg-black/20 border-white/10 text-gray-400 hover:bg-black/40 hover:text-white transition-all shadow-lg"
+            title="Hướng dẫn sử dụng"
+          >
+            <CircleHelp className="w-5 h-5" />
+          </button>
+
           <button
             onClick={toggleMusic}
             disabled={audioLock.current}
@@ -423,6 +455,116 @@ export default function App() {
                 <Camera className="w-5 h-5" />
                 Bắt đầu Trải nghiệm
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* HELP MODAL */}
+        {showHelpModal && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-md pointer-events-auto z-50 animate-fade-in p-4">
+            <div className="relative max-w-2xl w-full bg-gray-900/95 rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Header */}
+              <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+                <h2 className="text-2xl font-bold text-yellow-400 flex items-center gap-2" style={{ fontFamily: "'Mountains of Christmas', cursive" }}>
+                  <CircleHelp className="w-6 h-6" /> Hướng Dẫn Sử Dụng
+                </h2>
+                <button onClick={() => setShowHelpModal(false)} className="text-gray-400 hover:text-white transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 overflow-y-auto">
+                {isRecipientMode ? (
+                  // Recipient Content (Người nhận)
+                  <div className="space-y-6">
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                      <h3 className="text-lg font-bold text-blue-300 mb-2">👋 Chào bạn, {recipientName}!</h3>
+                      <p className="text-gray-300 text-sm">Bạn vừa nhận được một tấm thiệp 3D tương tác đặc biệt. Hãy làm theo các bước sau để khám phá nhé.</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="bg-white/5 p-4 rounded-xl border border-white/5 hover:border-yellow-500/30 transition-colors">
+                        <div className="text-4xl mb-3 text-center">✋</div>
+                        <h4 className="font-bold text-yellow-300 mb-1 text-center">Mở Quà (Open Palm)</h4>
+                        <p className="text-gray-400 text-sm text-center">Giơ bàn tay <strong>MỞ</strong> trước camera để biến cây thông thành cầu tuyết và mở các hộp quà bí mật.</p>
+                      </div>
+
+                      <div className="bg-white/5 p-4 rounded-xl border border-white/5 hover:border-red-500/30 transition-colors">
+                        <div className="text-4xl mb-3 text-center">✊</div>
+                        <h4 className="font-bold text-red-300 mb-1 text-center">Xem Cây Thông (Closed Fist)</h4>
+                        <p className="text-gray-400 text-sm text-center">Giơ bàn tay <strong>NẮM</strong> lại để quay về trạng thái cây thông Noel lấp lánh.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 bg-white/5 p-4 rounded-xl">
+                      <Volume2 className="w-5 h-5 text-green-400 mt-1 shrink-0" />
+                      <div>
+                        <h4 className="font-bold text-green-300">Âm nhạc</h4>
+                        <p className="text-gray-400 text-sm">Bấm vào biểu tượng loa góc trên bên phải để bật/tắt nhạc Giáng sinh.</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // Sender Content (Người tặng)
+                  <div className="space-y-6">
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
+                      <h3 className="text-lg font-bold text-purple-300 mb-2">✨ Tạo Thiệp Giáng Sinh 3D</h3>
+                      <p className="text-gray-300 text-sm">Tạo ra món quà tinh thần độc đáo tặng bạn bè chỉ với vài bước đơn giản.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex gap-4 items-start">
+                        <div className="w-8 h-8 rounded-full bg-yellow-500/20 text-yellow-500 flex items-center justify-center font-bold border border-yellow-500/50 shrink-0">1</div>
+                        <div>
+                          <h4 className="font-bold text-white">Nhập tên người nhận</h4>
+                          <p className="text-gray-400 text-sm">Điền tên bạn bè vào ô "Nhập tên người nhận" ở thanh công cụ phía dưới.</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4 items-start">
+                        <div className="w-8 h-8 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center font-bold border border-red-500/50 shrink-0">2</div>
+                        <div>
+                          <h4 className="font-bold text-white">Thêm lời chúc & Quà</h4>
+                          <p className="text-gray-400 text-sm">Nhấn nút <GiftIcon className="w-4 h-4 inline mx-1" /> để mở hộp thoại thêm quà. Viết lời chúc và chọn Sticker ngẫu nhiên.</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4 items-start">
+                        <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center font-bold border border-blue-500/50 shrink-0">3</div>
+                        <div>
+                          <h4 className="font-bold text-white">Chia sẻ</h4>
+                          <p className="text-gray-400 text-sm">Nhấn nút QR <QrCode className="w-4 h-4 inline mx-1" /> để tạo mã QR hoặc sao chép liên kết gửi cho bạn bè.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-white/10">
+                      <h4 className="font-bold text-gray-300 mb-3 text-sm uppercase tracking-wider">Cách tương tác (Gesture)</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center bg-black/20 p-3 rounded-lg border border-white/5">
+                          <span className="text-2xl block mb-1">✋</span>
+                          <span className="text-xs text-gray-400">Mở tay: Chế độ Cầu Tuyết</span>
+                        </div>
+                        <div className="text-center bg-black/20 p-3 rounded-lg border border-white/5">
+                          <span className="text-2xl block mb-1">✊</span>
+                          <span className="text-xs text-gray-400">Nắm tay: Chế độ Cây Thông</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-white/10 bg-white/5 text-center">
+                <button
+                  onClick={() => setShowHelpModal(false)}
+                  className="bg-white/10 hover:bg-white/20 text-white px-8 py-2 rounded-full font-semibold transition-all"
+                >
+                  Đã hiểu
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -545,13 +687,23 @@ export default function App() {
                   </p>
                 </div>
 
-                <button
-                  onClick={handleCopyLink}
-                  className="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold py-2.5 px-4 rounded-lg transition-all"
-                >
-                  {copied ? <Check className="w-5 h-5 text-green-400" /> : <LinkIcon className="w-5 h-5" />}
-                  {copied ? "Đã sao chép liên kết!" : "Sao chép liên kết thiệp"}
-                </button>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={handleCopyLink}
+                    className="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold py-2.5 px-4 rounded-lg transition-all"
+                  >
+                    {copied ? <Check className="w-5 h-5 text-green-400" /> : <LinkIcon className="w-5 h-5" />}
+                    {copied ? "Đã sao chép liên kết!" : "Sao chép liên kết"}
+                  </button>
+
+                  <button
+                    onClick={handleDownloadQR}
+                    className="w-full flex items-center justify-center gap-2 bg-yellow-500/20 hover:bg-yellow-500/40 border border-yellow-500/40 text-yellow-300 font-semibold py-2.5 px-4 rounded-lg transition-all"
+                  >
+                    <Download className="w-5 h-5" />
+                    Tải ảnh QR
+                  </button>
+                </div>
               </div>
             </div>
           </div>
