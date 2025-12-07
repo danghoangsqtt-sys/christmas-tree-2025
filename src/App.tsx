@@ -15,7 +15,7 @@ const WISHES = [
 ];
 
 // Using local file from public directory
-const AUDIO_URL = "/nhac-noel.mp3";
+const AUDIO_URL = "./nhac-noel.mp3";
 
 export default function App() {
   const [visionState, setVisionState] = useState<VisionResult>({ gesture: 'None', isPresent: false });
@@ -201,7 +201,7 @@ export default function App() {
         </div>
 
         {/* BOTTOM SECTION: Controls & Instructions */}
-        <div className="w-full flex flex-col items-center gap-4 pointer-events-auto pb-4">
+        <div className="w-full flex flex-col items-center gap-3 pointer-events-auto pb-6">
 
           {/* Name Input (Compact) */}
           <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 hover:bg-black/60 transition-colors">
@@ -221,6 +221,14 @@ export default function App() {
               Giơ tay trước camera: <strong>Nắm tay</strong> ✊ (Cây) hoặc <strong>Mở tay</strong> ✋ (Cầu)
             </div>
           )}
+
+          {/* Signature / Copyright Footer */}
+          <div className="mt-2 text-center px-4 animate-fade-in-up">
+            <p className="text-yellow-400 text-lg md:text-2xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,1)] tracking-wide leading-relaxed" style={{ fontFamily: "'Mountains of Christmas', cursive" }}>
+              Thiệp được sáng tạo bởi DangHoang (DHsystem); <br className="md:hidden" />
+              <span className="text-white/90">chúc mọi người một mùa giáng sinh an lành</span>
+            </p>
+          </div>
         </div>
 
         {/* Start Screen / Instructions Modal */}
