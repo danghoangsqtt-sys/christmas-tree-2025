@@ -4,14 +4,36 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { VisionService } from '../services/visionService';
 import { generateTreePositions, generateSpherePositions, createStarGeometry } from '../utils/geometry';
-import { VisionResult, AppMode } from '../types';
+import { VisionResult, AppMode, Gift } from '../types';
 
 interface Props {
   targetMode: AppMode;
   onVisionUpdate: (result: VisionResult) => void;
+  activeGift: Gift | null;
 }
 
 // --- HELPERS ---
+
+const createTextTexture = (text: string, size: number = 128): THREE.CanvasTexture => {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = 'rgba(0,0,0,0)'; // Transparent
+    ctx.clearRect(0, 0, size, size);
+    ctx.font = `${size * 0.8}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'white';
+    // Add glow effect to text
+    ctx.shadowColor = "gold";
+    ctx.shadowBlur = 20;
+    ctx.fillText(text, size / 2, size / 2);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  return texture;
+}
 
 // Helper to create a Snowman Group
 const createSnowmanMesh = (scale: number = 1, glowMaterial?: THREE.SpriteMaterial): THREE.Group => {
@@ -377,6 +399,80 @@ const createSantaMesh = (scale: number = 1, glowSpriteMaterial?: THREE.SpriteMat
   return group;
 }
 
+// --- BIG GIFT BOX (For Interaction) ---
+const createBigGiftBox = (scale: number = 2.5): { group: THREE.Group, lid: THREE.Group, body: THREE.Mesh } => {
+  const group = new THREE.Group();
+
+  // Materials
+  const boxMat = new THREE.MeshStandardMaterial({
+    color: 0xcc0000,
+    roughness: 0.2,
+    metalness: 0.1,
+    emissive: 0x550000,
+    emissiveIntensity: 0.2
+  });
+  const ribbonMat = new THREE.MeshStandardMaterial({
+    color: 0xffd700,
+    roughness: 0.3,
+    metalness: 0.7,
+    emissive: 0xaa8800,
+    emissiveIntensity: 0.4
+  });
+
+  // Box Body
+  const size = 2 * scale;
+  const bodyGeo = new THREE.BoxGeometry(size, size, size);
+  const body = new THREE.Mesh(bodyGeo, boxMat);
+  body.position.y = size / 2;
+  group.add(body);
+
+  // Body Ribbon (Vertical)
+  const ribVGeo = new THREE.BoxGeometry(size * 0.15, size + 0.02, size + 0.02);
+  const ribV = new THREE.Mesh(ribVGeo, ribbonMat);
+  ribV.position.y = size / 2;
+  group.add(ribV);
+
+  const ribHGeo = new THREE.BoxGeometry(size + 0.02, size + 0.02, size * 0.15);
+  const ribH = new THREE.Mesh(ribHGeo, ribbonMat);
+  ribH.position.y = size / 2;
+  group.add(ribH);
+
+
+  // Lid Group (Pivots at back edge)
+  const lidGroup = new THREE.Group();
+  lidGroup.position.set(0, size, -size / 2); // Pivot point at top-back edge
+  group.add(lidGroup);
+
+  // Lid Geometry (Offset relative to pivot)
+  const lidSize = size * 1.05;
+  const lidHeight = size * 0.2;
+  const lidGeo = new THREE.BoxGeometry(lidSize, lidHeight, lidSize);
+  // Center of lid geometry should be offset so edge aligns with (0,0,0) of lidGroup
+  // Since pivot is at back edge (-size/2), we need to move the mesh forward by size/2
+  lidGeo.translate(0, lidHeight / 2, lidSize / 2);
+
+  const lid = new THREE.Mesh(lidGeo, boxMat);
+  lidGroup.add(lid);
+
+  // Lid Ribbon
+  const lidRibV = new THREE.Mesh(new THREE.BoxGeometry(lidSize * 0.15, lidHeight + 0.02, lidSize + 0.02), ribbonMat);
+  lidRibV.position.set(0, lidHeight / 2, lidSize / 2);
+  lidGroup.add(lidRibV);
+
+  const lidRibH = new THREE.Mesh(new THREE.BoxGeometry(lidSize + 0.02, lidHeight + 0.02, lidSize * 0.15), ribbonMat);
+  lidRibH.position.set(0, lidHeight / 2, lidSize / 2);
+  lidGroup.add(lidRibH);
+
+  // Bow on top of lid
+  const bowGeo = new THREE.TorusKnotGeometry(0.3 * scale, 0.08 * scale, 64, 8);
+  const bow = new THREE.Mesh(bowGeo, ribbonMat);
+  bow.position.set(0, lidHeight + 0.3 * scale, lidSize / 2);
+  lidGroup.add(bow);
+
+  return { group, lid: lidGroup, body };
+}
+
+
 // --- NEW BACKGROUND: DREAMY SNOWY TOWN ---
 const createDreamyTown = (): THREE.Group => {
   const townGroup = new THREE.Group();
@@ -520,7 +616,7 @@ const createAuraTexture = (): THREE.CanvasTexture => {
   return new THREE.CanvasTexture(canvas);
 };
 
-const ChristmasCanvas: React.FC<Props> = ({ targetMode, onVisionUpdate }) => {
+const ChristmasCanvas: React.FC<Props> = ({ targetMode, onVisionUpdate, activeGift }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(document.createElement("video"));
 
@@ -551,10 +647,20 @@ const ChristmasCanvas: React.FC<Props> = ({ targetMode, onVisionUpdate }) => {
   const decorationsGroupRef = useRef<THREE.Group | null>(null);
   const reflectionDecGroupRef = useRef<THREE.Group | null>(null);
 
+  // GIFT REFS
+  const giftBoxGroupRef = useRef<THREE.Group | null>(null);
+  const giftBoxLidRef = useRef<THREE.Group | null>(null);
+  const giftContentRef = useRef<THREE.Group | null>(null);
+  const giftContentSpriteRef = useRef<THREE.Sprite | null>(null);
+  const confettiSystemRef = useRef<THREE.Points | null>(null);
+
   // Data Refs
   const treePositionsRef = useRef<Float32Array | null>(null);
   const spherePositionsRef = useRef<Float32Array | null>(null);
   const morphState = useRef({ value: 0 }); // 0 = Tree, 1 = Sphere
+
+  // Store active gift to detect changes
+  const prevGiftRef = useRef<string | null>(null);
 
   useEffect(() => {
     // 1. Initialize Vision
@@ -871,6 +977,55 @@ const ChristmasCanvas: React.FC<Props> = ({ targetMode, onVisionUpdate }) => {
     corgiRef.current = corgi;
 
 
+    // --- BIG GIFT BOX LOGIC ---
+    const { group: giftGroup, lid: giftLid, body: giftBody } = createBigGiftBox(2.0);
+    giftGroup.position.set(0, 0, 0);
+    giftGroup.scale.set(0, 0, 0); // Start hidden
+    pivot.add(giftGroup);
+    giftBoxGroupRef.current = giftGroup;
+    giftBoxLidRef.current = giftLid;
+
+    // Inner Content (Sticker)
+    const giftContent = new THREE.Group();
+    giftContent.position.set(0, 3, 0);
+    giftGroup.add(giftContent);
+    giftContentRef.current = giftContent;
+
+    const stickerSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      color: 0xffffff,
+      transparent: true
+    }));
+    stickerSprite.scale.set(3, 3, 1);
+    giftContent.add(stickerSprite);
+    giftContentSpriteRef.current = stickerSprite;
+
+    // Confetti System
+    const confettiCount = 300;
+    const confettiGeo = new THREE.BufferGeometry();
+    const confettiPos = new Float32Array(confettiCount * 3);
+    const confettiColors = new Float32Array(confettiCount * 3);
+    const confettiVel = new Float32Array(confettiCount * 3);
+
+    for (let i = 0; i < confettiCount; i++) {
+      confettiPos[i * 3] = 0; confettiPos[i * 3 + 1] = 0; confettiPos[i * 3 + 2] = 0;
+      // Random bright colors
+      const c = new THREE.Color().setHSL(Math.random(), 1, 0.5);
+      confettiColors[i * 3] = c.r; confettiColors[i * 3 + 1] = c.g; confettiColors[i * 3 + 2] = c.b;
+      // Explosion velocity
+      confettiVel[i * 3] = (Math.random() - 0.5) * 0.8;
+      confettiVel[i * 3 + 1] = Math.random() * 0.8;
+      confettiVel[i * 3 + 2] = (Math.random() - 0.5) * 0.8;
+    }
+    confettiGeo.setAttribute('position', new THREE.BufferAttribute(confettiPos, 3));
+    confettiGeo.setAttribute('color', new THREE.BufferAttribute(confettiColors, 3));
+    const confettiMat = new THREE.PointsMaterial({ size: 0.2, vertexColors: true });
+    const confettiSystem = new THREE.Points(confettiGeo, confettiMat);
+    confettiSystem.visible = false;
+    pivot.add(confettiSystem);
+    confettiSystemRef.current = confettiSystem;
+    confettiSystem.userData = { velocities: confettiVel, active: false };
+
+
     // --- BACKGROUND: DREAMY TOWN ---
     const town = createDreamyTown();
     scene.add(town);
@@ -976,6 +1131,28 @@ const ChristmasCanvas: React.FC<Props> = ({ targetMode, onVisionUpdate }) => {
         // Wiggle snow
         snowSystemRef.current.rotation.y = Math.sin(time * 0.1) * 0.1;
       }
+
+      // Confetti Animation
+      if (confettiSystemRef.current && confettiSystemRef.current.userData.active) {
+        const positions = confettiSystemRef.current.geometry.attributes.position.array as Float32Array;
+        const vels = confettiSystemRef.current.userData.velocities;
+        let allDead = true;
+        for (let i = 0; i < confettiCount; i++) {
+          // Gravity
+          vels[i * 3 + 1] -= 0.02;
+          positions[i * 3] += vels[i * 3];
+          positions[i * 3 + 1] += vels[i * 3 + 1];
+          positions[i * 3 + 2] += vels[i * 3 + 2];
+
+          if (positions[i * 3 + 1] > -5) allDead = false;
+        }
+        confettiSystemRef.current.geometry.attributes.position.needsUpdate = true;
+        if (allDead) {
+          confettiSystemRef.current.userData.active = false;
+          confettiSystemRef.current.visible = false;
+        }
+      }
+
 
       // Morph Logic with ORGANIC BREATHING
       if (particlesRef.current && treePositionsRef.current && spherePositionsRef.current) {
@@ -1174,6 +1351,14 @@ const ChristmasCanvas: React.FC<Props> = ({ targetMode, onVisionUpdate }) => {
         gsap.to(reflectionDecGroupRef.current.scale, { x: 0, y: 0, z: 0, duration: 1, ease: "power2.in" });
       }
 
+      // Close Gift
+      if (giftBoxGroupRef.current) {
+        gsap.to(giftBoxGroupRef.current.scale, { x: 0, y: 0, z: 0, duration: 0.5, ease: "back.in(1.7)" });
+        if (giftBoxLidRef.current) {
+          gsap.to(giftBoxLidRef.current.rotation, { x: 0, duration: 0.5 });
+        }
+      }
+
       // SPHERE MODE
     } else {
       gsap.to(morphState.current, { value: 1, duration: 2.2, ease: "power2.inOut" });
@@ -1195,14 +1380,57 @@ const ChristmasCanvas: React.FC<Props> = ({ targetMode, onVisionUpdate }) => {
           { x: 2.2, y: 2.2, z: 2.2, duration: 0.8, yoyo: true, repeat: 1, ease: "sine.inOut" }
         );
       }
-      if (decorationsGroupRef.current) {
-        gsap.to(decorationsGroupRef.current.scale, { x: 1, y: 1, z: 1, duration: 1.5, delay: 0.5, ease: "elastic.out(1, 0.75)" });
-      }
-      if (reflectionDecGroupRef.current) {
-        gsap.to(reflectionDecGroupRef.current.scale, { x: 1, y: 1, z: 1, duration: 1.5, delay: 0.5, ease: "elastic.out(1, 0.75)" });
+
+      // Only show normal decorations if NO gift is active
+      if (!activeGift) {
+        if (decorationsGroupRef.current) {
+          gsap.to(decorationsGroupRef.current.scale, { x: 1, y: 1, z: 1, duration: 1.5, delay: 0.5, ease: "elastic.out(1, 0.75)" });
+        }
+        if (reflectionDecGroupRef.current) {
+          gsap.to(reflectionDecGroupRef.current.scale, { x: 1, y: 1, z: 1, duration: 1.5, delay: 0.5, ease: "elastic.out(1, 0.75)" });
+        }
+      } else {
+        // If gift active, ensure decorations are hidden
+        if (decorationsGroupRef.current) gsap.to(decorationsGroupRef.current.scale, { x: 0, y: 0, z: 0 });
+        if (reflectionDecGroupRef.current) gsap.to(reflectionDecGroupRef.current.scale, { x: 0, y: 0, z: 0 });
       }
     }
-  }, [targetMode]);
+  }, [targetMode, activeGift]);
+
+  // Handle Gift Activation Change
+  useEffect(() => {
+    // If a gift just became active and we are in Sphere mode
+    if (activeGift && targetMode === AppMode.SPHERE) {
+      // Update Text Texture
+      if (giftContentSpriteRef.current) {
+        giftContentSpriteRef.current.material.map = createTextTexture(activeGift.sticker);
+      }
+
+      // Animate Box In
+      if (giftBoxGroupRef.current) {
+        gsap.to(giftBoxGroupRef.current.scale, { x: 1, y: 1, z: 1, duration: 0.8, ease: "elastic.out(1, 0.5)" });
+
+        // Open Lid
+        if (giftBoxLidRef.current) {
+          gsap.to(giftBoxLidRef.current.rotation, { x: -Math.PI * 0.6, duration: 1, delay: 0.5, ease: "power2.out" });
+        }
+
+        // Explode Confetti
+        if (confettiSystemRef.current) {
+          confettiSystemRef.current.visible = true;
+          confettiSystemRef.current.userData.active = true;
+          const vels = confettiSystemRef.current.userData.velocities;
+          const pos = confettiSystemRef.current.geometry.attributes.position.array as Float32Array;
+          for (let i = 0; i < 300; i++) {
+            pos[i * 3] = 0; pos[i * 3 + 1] = 2; pos[i * 3 + 2] = 0;
+            vels[i * 3] = (Math.random() - 0.5) * 0.8;
+            vels[i * 3 + 1] = Math.random() * 0.8 + 0.2;
+            vels[i * 3 + 2] = (Math.random() - 0.5) * 0.8;
+          }
+        }
+      }
+    }
+  }, [activeGift, targetMode]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 };
