@@ -1346,7 +1346,7 @@ const ChristmasCanvas: React.FC<Props> = ({ targetMode, onVisionUpdate, activeGi
     };
 
     // Use { passive: false } to allow preventDefault inside touchmove
-    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchstart', handleTouchStart, { passive: false });
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
     window.addEventListener('touchend', handleTouchEnd);
 

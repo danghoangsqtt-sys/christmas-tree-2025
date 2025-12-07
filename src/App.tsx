@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import ChristmasCanvas from './components/ChristmasCanvas';
 import { VisionResult, AppMode, Gift, STICKERS } from './types';
