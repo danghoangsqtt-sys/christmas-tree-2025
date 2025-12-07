@@ -1,31 +1,16 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
 
-< !DOCTYPE html >
-  <html lang="en">
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-      <title>Christmas Magic 2.0</title>
-      <script src="https://cdn.tailwindcss.com"></script>
-      <link href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@400;700&display=swap" rel="stylesheet">
-        <style>
-          body {margin: 0; overflow: hidden; background-color: #050510; font-family: 'Mountains of Christmas', cursive; }
-          canvas {display: block; touch-action: none; }
-        </style>
-        <script type="importmap">
-          {
-            "imports": {
-            "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
-          "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-          "react/": "https://aistudiocdn.com/react@^19.2.1/",
-          "react": "https://aistudiocdn.com/react@^19.2.1",
-          "three": "https://aistudiocdn.com/three@^0.181.2",
-          "gsap": "https://aistudiocdn.com/gsap@^3.13.0",
-          "@mediapipe/tasks-vision": "https://aistudiocdn.com/@mediapipe/tasks-vision@^0.10.22-rc.20250304"
-  }
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error("Could not find root element to mount to");
 }
-        </script>
-    </head>
-    <body>
-      <div id="root"></div>
-    </body>
-  </html>
+
+const root = ReactDOM.createRoot(rootElement);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
