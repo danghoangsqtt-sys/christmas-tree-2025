@@ -254,24 +254,166 @@ export default function App() {
     });
   };
 
+  // --- NÂNG CẤP CHỨC NĂNG TẢI ẢNH QR ĐẸP ---
   const handleDownloadQR = async () => {
-    try {
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&format=png&data=${encodeURIComponent(getShareUrl())}`;
-      const response = await fetch(qrUrl);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+    const qrData = getShareUrl();
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&format=png&data=${encodeURIComponent(qrData)}`;
 
+    // Tạo Canvas
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Kích thước ảnh thiệp (HD)
+    const W = 800;
+    const H = 1000;
+    canvas.width = W;
+    canvas.height = H;
+
+    // 1. Vẽ nền (Gradient Đêm Giáng Sinh)
+    const gradient = ctx.createLinearGradient(0, 0, 0, H);
+    gradient.addColorStop(0, '#0f0c29'); // Đen xanh
+    gradient.addColorStop(0.5, '#302b63'); // Tím than
+    gradient.addColorStop(1, '#24243e'); // Xanh đen
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, W, H);
+
+    // 2. Vẽ Viền Trang Trí (Lá thông + Đèn)
+    // Dùng Emoji để vẽ viền
+    ctx.font = '30px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const borderItems = ['🌿', '🎄', '✨', '🔴', '🌿', '🔔'];
+    const padding = 30;
+
+    // Viền trên & dưới
+    for (let x = padding; x < W - padding; x += 40) {
+      const item = borderItems[Math.floor((x / 40) % borderItems.length)];
+      ctx.fillText(item, x, padding); // Top
+      ctx.fillText(item, x, H - padding); // Bottom
+    }
+    // Viền trái & phải
+    for (let y = padding; y < H - padding; y += 40) {
+      const item = borderItems[Math.floor((y / 40) % borderItems.length)];
+      ctx.fillText(item, padding, y); // Left
+      ctx.fillText(item, W - padding, y); // Right
+    }
+
+    // 3. Tiêu đề: THIỆP GIÁNG SINH (Neon Vàng)
+    ctx.shadowColor = '#FFD700';
+    ctx.shadowBlur = 30;
+    ctx.font = 'bold 80px "Mountains of Christmas", cursive'; // Fallback cursive
+    ctx.fillStyle = '#FFD700'; // Gold
+    ctx.fillText("THIỆP GIÁNG SINH", W / 2, 150);
+
+    // Reset shadow for subtitle
+    ctx.shadowBlur = 0;
+
+    // 4. Nội dung mời gọi
+    ctx.font = 'italic 30px serif';
+    ctx.fillStyle = '#E0E0E0';
+    ctx.fillText("Mời bạn quét mã QR để xem thiệp dành riêng cho:", W / 2, 220);
+
+    // Tên người nhận (Nổi bật)
+    ctx.font = 'bold 50px serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = 'rgba(255, 0, 0, 0.8)';
+    ctx.shadowBlur = 15;
+    ctx.fillText(recipientName || "Bạn Của Tôi", W / 2, 280);
+    ctx.shadowBlur = 0;
+
+    // 5. Vẽ Nhân Vật Đồ Họa (Emoji khổng lồ)
+    ctx.font = '160px serif';
+
+    // Corgi bên trái (Ngồi, Lè lưỡi) - Dùng Emoji Chó
+    ctx.save();
+    ctx.translate(150, 450);
+    ctx.rotate(-0.1);
+    ctx.fillText("🐕", 0, 0); // Chó
+    ctx.font = '60px serif';
+    ctx.fillText("😛", 35, -30); // Lè lưỡi thêm vào
+    ctx.restore();
+
+    // Ông già Noel bên phải (Đang cười)
+    ctx.save();
+    ctx.translate(W - 150, 450);
+    ctx.rotate(0.1);
+    ctx.font = '160px serif';
+    ctx.fillText("🎅", 0, 0);
+    ctx.restore();
+
+    // 6. Số lượng hộp quà
+    if (giftList.length > 0) {
+      ctx.font = 'bold 30px sans-serif';
+      ctx.fillStyle = '#FF6B6B'; // Đỏ nhạt
+      ctx.fillText(`( 🎁 Có ${giftList.length} hộp quà bí ẩn đang chờ bạn )`, W / 2, 340);
+    }
+
+    // 7. Vẽ Khung QR + Mã QR
+    // Tải ảnh QR từ server
+    try {
+      const qrImage = new Image();
+      qrImage.crossOrigin = "Anonymous"; // Quan trọng để không bị lỗi 'tainted canvas'
+      qrImage.src = qrApiUrl;
+
+      await new Promise((resolve, reject) => {
+        qrImage.onload = resolve;
+        qrImage.onerror = reject;
+      });
+
+      const qrSize = 350;
+      const qrX = (W - qrSize) / 2;
+      const qrY = H - 450; // Vị trí QR ở dưới
+
+      // Vẽ khung nền ánh kim (Vàng + Đỏ)
+      const framePadding = 20;
+      const gradFrame = ctx.createLinearGradient(qrX - framePadding, qrY - framePadding, qrX + qrSize + framePadding, qrY + qrSize + framePadding);
+      gradFrame.addColorStop(0, '#FFD700'); // Vàng
+      gradFrame.addColorStop(0.5, '#FF4500'); // Đỏ cam
+      gradFrame.addColorStop(1, '#FFD700'); // Vàng
+
+      ctx.fillStyle = gradFrame;
+      // Vẽ bo góc khung
+      ctx.beginPath();
+      ctx.roundRect(qrX - framePadding, qrY - framePadding, qrSize + framePadding * 2, qrSize + framePadding * 2, 30);
+      ctx.fill();
+
+      // Vẽ nền trắng cho QR (để dễ quét)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.roundRect(qrX, qrY, qrSize, qrSize, 10);
+      ctx.fill();
+
+      // Vẽ QR lên
+      ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+
+      // Footer Text
+      ctx.font = '20px sans-serif';
+      ctx.fillStyle = '#888888';
+      ctx.fillText("Được tạo bởi Christmas Magic 2.0", W / 2, H - 40);
+
+      // 8. Xuất ảnh và tải về
+      const dataUrl = canvas.toDataURL("image/png");
       const a = document.createElement('a');
-      a.href = url;
+      a.href = dataUrl;
       const safeName = recipientName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'friend';
-      a.download = `thiep-giang-sinh-${safeName}.png`;
+      a.download = `thiep-giang-sinh-vip-${safeName}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+
     } catch (error) {
-      console.error('Download failed', error);
-      alert('Không thể tải ảnh. Vui lòng thử lại.');
+      console.error("Lỗi khi tạo ảnh QR:", error);
+      alert("Không thể tạo ảnh thiệp. Đang tải mã QR cơ bản thay thế...");
+
+      // Fallback: Tải QR thường nếu Canvas lỗi
+      const a = document.createElement('a');
+      a.href = qrApiUrl;
+      a.download = 'qr-code.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
   };
 
