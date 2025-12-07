@@ -1,0 +1,7 @@
+{
+  "name": "Christmas Magic 2.0",
+  "description": "An interactive 3D Christmas card featuring morphing particle systems, a glowing star, and floating decorations controlled by hand gestures.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

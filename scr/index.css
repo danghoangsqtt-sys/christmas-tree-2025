@@ -1,0 +1,45 @@
+/* index.css */
+
+/* Thiết lập cơ bản cho trang web */
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    /* Ẩn thanh cuộn để không bị vướng khi xem 3D */
+    background-color: #050510;
+    /* Màu nền tối (Dark Blue) */
+    font-family: 'Mountains of Christmas', cursive;
+    /* Phông chữ Giáng sinh */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    width: 100vw;
+    height: 100vh;
+}
+
+canvas {
+    display: block;
+    /* Đảm bảo khung hình 3D không bị khoảng trắng */
+    outline: none;
+}
+
+/* Ẩn thanh cuộn trên mọi trình duyệt (để trông chuyên nghiệp hơn) */
+* {
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+*::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari, Opera */
+}
+
+/* Hiệu ứng loading quay tròn (nếu cần dùng sau này) */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin-slow {
+    animation: spin 3s linear infinite;
+}
