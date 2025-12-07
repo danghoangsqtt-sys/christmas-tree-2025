@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ChristmasCanvas from './components/ChristmasCanvas';
 import { VisionResult, AppMode } from './types';
-import { Camera, Hand, Sparkles, Edit3, Volume2, VolumeX } from 'lucide-react';
+import { Camera, Hand, Sparkles, Edit3, Volume2, VolumeX, QrCode, X, Link as LinkIcon, Check } from 'lucide-react';
 
 const WISHES = [
   "Giáng Sinh An Lành",
@@ -17,6 +17,9 @@ const WISHES = [
 // Using local file from public directory
 const AUDIO_URL = "./nhac-noel.mp3";
 
+// Production Domain
+const PROD_DOMAIN = "https://christmas-tree-2025-moko.vercel.app/";
+
 export default function App() {
   const [visionState, setVisionState] = useState<VisionResult>({ gesture: 'None', isPresent: false });
   const [mode, setMode] = useState<AppMode>(AppMode.TREE);
@@ -24,6 +27,11 @@ export default function App() {
   const [cameraAllowed, setCameraAllowed] = useState(false);
   const [recipientName, setRecipientName] = useState<string>("");
   const [currentWish, setCurrentWish] = useState(WISHES[0]);
+
+  // Recipient / QR Mode State
+  const [isRecipientMode, setIsRecipientMode] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Music State
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
@@ -40,14 +48,12 @@ export default function App() {
     const audio = new Audio(AUDIO_URL);
     audio.loop = true;
     audio.volume = 0.5; // Moderate volume
-    // Removed crossOrigin for local file to avoid potential issues
 
     audioRef.current = audio;
 
     // Error handling
     const handleError = (e: Event) => {
       const target = e.target as HTMLAudioElement;
-      // Detailed error logging
       const code = target.error ? target.error.code : 'Unknown';
       const message = target.error ? target.error.message : 'Network/Format Error';
       console.error(`Audio Load Error (Code ${code}): ${message}`, target.src);
@@ -63,6 +69,36 @@ export default function App() {
     };
   }, []);
 
+  // Check URL parameters for recipient name (ROBUST CHECK)
+  useEffect(() => {
+    const getRecipientFromUrl = () => {
+      // 1. Check Standard Search Params (?to=...)
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.has('to')) {
+        return searchParams.get('to');
+      }
+
+      // 2. Check Hash Params (#/?to=... or #to=...)
+      // Some redirects or routers might put params after the hash
+      if (window.location.hash.includes('?')) {
+        const hashParts = window.location.hash.split('?');
+        if (hashParts.length > 1) {
+          const hashParams = new URLSearchParams(hashParts[1]);
+          if (hashParams.has('to')) return hashParams.get('to');
+        }
+      }
+
+      return null;
+    };
+
+    const toParam = getRecipientFromUrl();
+    if (toParam && toParam.trim() !== '') {
+      console.log("Recipient Detected:", toParam);
+      setRecipientName(toParam);
+      setIsRecipientMode(true);
+    }
+  }, []);
+
   // Safe Play Function (Protected by Lock)
   const playAudio = async () => {
     if (!audioRef.current || audioLock.current) return;
@@ -72,7 +108,6 @@ export default function App() {
       await audioRef.current.play();
       setIsMusicPlaying(true);
     } catch (err: any) {
-      // Ignore AbortError (happens if paused while loading or navigating away)
       if (err.name !== 'AbortError') {
         console.warn("Audio playback failed:", err);
       }
@@ -140,6 +175,21 @@ export default function App() {
       });
   };
 
+  const getShareUrl = () => {
+    const url = new URL(PROD_DOMAIN);
+    if (recipientName) {
+      url.searchParams.set('to', recipientName);
+    }
+    return url.toString();
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(getShareUrl()).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   return (
     <div className="relative w-full h-screen text-white overflow-hidden font-sans">
 
@@ -163,12 +213,23 @@ export default function App() {
             {currentWish}
           </h1>
 
-          {/* Recipient Name Display */}
-          <div className="h-12 flex items-center justify-center">
-            {recipientName && (
-              <div className="text-2xl md:text-3xl text-white font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] transition-all duration-500">
-                Gửi tặng: <span className="text-red-400">{recipientName}</span>
+          {/* Recipient Name Display - Context Aware */}
+          <div className="h-16 flex items-center justify-center">
+            {isRecipientMode ? (
+              // DISPLAY FOR RECIPIENT
+              <div className="text-center animate-fade-in-up">
+                <p className="text-lg text-gray-200 font-serif italic mb-1">Dành tặng cho</p>
+                <div className="text-3xl md:text-5xl text-white font-bold drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]" style={{ fontFamily: "'Mountains of Christmas', cursive" }}>
+                  {recipientName}
+                </div>
               </div>
+            ) : (
+              // DISPLAY FOR SENDER (Preview)
+              recipientName && (
+                <div className="text-xl md:text-2xl text-white font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] opacity-80">
+                  Đang viết thiệp cho: <span className="text-yellow-300">{recipientName}</span>
+                </div>
+              )
             )}
           </div>
         </div>
@@ -203,17 +264,34 @@ export default function App() {
         {/* BOTTOM SECTION: Controls & Instructions */}
         <div className="w-full flex flex-col items-center gap-3 pointer-events-auto pb-6">
 
-          {/* Name Input (Compact) */}
-          <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 hover:bg-black/60 transition-colors">
-            <Edit3 className="w-4 h-4 text-gray-300" />
-            <input
-              type="text"
-              value={recipientName}
-              onChange={(e) => setRecipientName(e.target.value)}
-              placeholder="Nhập tên người nhận..."
-              className="bg-transparent border-none text-sm md:text-base focus:outline-none text-white placeholder-gray-400 w-40 md:w-56"
-            />
-          </div>
+          {/* Show controls ONLY if not in Recipient Mode */}
+          {!isRecipientMode && (
+            <div className="flex items-center gap-2 animate-fade-in">
+              {/* Name Input */}
+              <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 hover:bg-black/60 transition-colors">
+                <Edit3 className="w-4 h-4 text-gray-300" />
+                <input
+                  type="text"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                  placeholder="Nhập tên người nhận..."
+                  className="bg-transparent border-none text-sm md:text-base focus:outline-none text-white placeholder-gray-400 w-40 md:w-56"
+                />
+              </div>
+
+              {/* QR Generation Button */}
+              <button
+                onClick={() => {
+                  if (recipientName.trim()) setShowQRModal(true);
+                  else alert("Vui lòng nhập tên người nhận trước khi tạo thiệp!");
+                }}
+                className="p-2.5 bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-300 rounded-full border border-yellow-400/30 backdrop-blur-md transition-all"
+                title="Tạo mã QR thiệp"
+              >
+                <QrCode className="w-5 h-5" />
+              </button>
+            </div>
+          )}
 
           {/* Gesture Instructions */}
           {cameraAllowed && (
@@ -249,6 +327,50 @@ export default function App() {
                 <Camera className="w-5 h-5" />
                 Bắt đầu Trải nghiệm
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* QR Code Modal */}
+        {showQRModal && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-md pointer-events-auto z-50 animate-fade-in">
+            <div className="relative max-w-sm w-full mx-4 p-6 bg-gray-900/90 rounded-2xl border border-yellow-500/30 shadow-[0_0_30px_rgba(255,215,0,0.2)]">
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-yellow-400 mb-2" style={{ fontFamily: "'Mountains of Christmas', cursive" }}>Chia Sẻ Thiệp</h3>
+                <p className="text-gray-300 text-sm mb-4">Quét mã QR để xem thiệp dành cho <br /><span className="text-white font-bold text-lg">{recipientName}</span></p>
+
+                <div className="bg-white p-4 rounded-xl mx-auto w-fit mb-4">
+                  {/* Using QR Server API */}
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getShareUrl())}`}
+                    alt="QR Code"
+                    className="w-48 h-48 object-contain"
+                  />
+                </div>
+
+                <div className="bg-yellow-500/10 border border-yellow-500/20 p-2 rounded mb-4">
+                  <p className="text-xs text-yellow-200">
+                    Lưu ý: Mã QR này dẫn đến trang web chính thức ({PROD_DOMAIN}).
+                    <br />
+                    <strong>Hãy đảm bảo bạn đã cập nhật code mới nhất lên Vercel để tính năng hoạt động.</strong>
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold py-2.5 px-4 rounded-lg transition-all"
+                >
+                  {copied ? <Check className="w-5 h-5 text-green-400" /> : <LinkIcon className="w-5 h-5" />}
+                  {copied ? "Đã sao chép liên kết!" : "Sao chép liên kết thiệp"}
+                </button>
+              </div>
             </div>
           </div>
         )}
